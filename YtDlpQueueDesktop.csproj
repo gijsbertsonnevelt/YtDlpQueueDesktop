@@ -1,0 +1,46 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0-windows</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UseWindowsForms>true</UseWindowsForms>
+		<RootNamespace>YtDlpQueueDesktop</RootNamespace>
+		<AssemblyName>YtDlpQueueDesktop</AssemblyName>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<InvariantGlobalization>true</InvariantGlobalization>
+		<ApplicationIcon>downloading.ico</ApplicationIcon>
+		<PublishSingleFile>true</PublishSingleFile>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<Version>1.1.0</Version>
+		<AssemblyVersion>1.1.0.0</AssemblyVersion>
+		<FileVersion>1.1.0.0</FileVersion>
+		<Copyright>© 2026 GS Software</Copyright>
+		<Company>GS Software</Company>
+		<Product>yt-dlp Queue</Product>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Remove="donate-paypal.png" />
+		<None Remove="donate-revolut.png" />
+		<None Remove="global-settings.ico" />
+		<None Remove="Logon.ico" />
+		<None Remove="YtDlpQueue.ico" />
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="donate-paypal.png" />
+		<EmbeddedResource Include="donate-revolut.png" />
+		<EmbeddedResource Include="downloading.ico" />
+		<EmbeddedResource Include="global-settings.ico" />
+		<EmbeddedResource Include="Logon.ico" />
+		<EmbeddedResource Include="YtDlpQueue.ico" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2592.51" />
+	</ItemGroup>
+
+	<!-- WebView2Loader.dll kan niet in een SingleFile bundel — altijd los publiceren -->
+	<ItemGroup>
+		<None Include="$(NuGetPackageRoot)microsoft.web.webview2\1.0.2592.51\runtimes\win-x64\native\WebView2Loader.dll" CopyToPublishDirectory="Always" Visible="false" />
+	</ItemGroup>
+</Project>
