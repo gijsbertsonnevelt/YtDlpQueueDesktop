@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+	<Package Name="yt-dlp Queue"
+             Manufacturer="GS Software"
+             Version="1.0.0"
+             UpgradeCode="55990da1-924a-4052-b142-c186450baa41"
+             Language="1043"
+             Codepage="1252"
+             Scope="perUser">
+
+		<MajorUpgrade DowngradeErrorMessage="Een nieuwere versie van yt-dlp Queue is al geïnstalleerd." />
+		<MediaTemplate EmbedCab="yes" />
+		<WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+		<Icon Id="YtDlpQueue.ico" SourceFile="YtDlpQueue.ico" />
+		<Property Id="ARPPRODUCTICON" Value="YtDlpQueue.ico" />
+		<SetProperty Id="MSIEXTRACTCACHELOCATION" Value="C:\Temp\" Sequence="execute" Before="CostInitialize" />
+		<ui:WixUI Id="WixUI_FeatureTree" />
+
+		<Feature Id="ProductFeature" Title="yt-dlp Queue" Level="1" AllowAbsent="no">
+			<ComponentGroupRef Id="ProductComponents" />
+			<ComponentGroupRef Id="ToolsComponents" />
+		</Feature>
+
+		<Feature Id="DesktopShortcutFeature"
+                 Title="Snelkoppeling op bureaublad"
+                 Description="Maak een snelkoppeling aan op het bureaublad"
+                 Level="1">
+			<ComponentGroupRef Id="ProductShortcuts" />
+		</Feature>
+
+		<Feature Id="StartMenuFeature"
+                 Title="Snelkoppeling in startmenu"
+                 Description="Maak een snelkoppeling aan in het startmenu"
+                 Level="1">
+			<ComponentGroupRef Id="StartMenuShortcuts" />
+		</Feature>
+	</Package>
+
+	<!-- ── Mappen ─────────────────────────────────────────────────────────── -->
+	<Fragment>
+		<StandardDirectory Id="LocalAppDataFolder">
+			<Directory Id="GSSOFTWARE" Name="GS Software">
+				<Directory Id="APPFOLDER" Name="yt-dlp Queue">
+					<Directory Id="TOOLSFOLDER" Name="tools" />
+				</Directory>
+			</Directory>
+		</StandardDirectory>
+	</Fragment>
+
+	<!-- ── Hoofd-exe ──────────────────────────────────────────────────────── -->
+	<Fragment>
+		<ComponentGroup Id="ProductComponents" Directory="APPFOLDER">
+			<Component Id="MainExecutable"
+                       Guid="12391113-c7d7-4715-8eb9-6fa3d393929e">
+				<File Id="YtDlpQueueDesktop.exe"
+                      Source="..\bin\Release\net10.0-windows\publish\YtDlpQueueDesktop.exe" />
+				<File Id="WebView2Loader.dll"
+                      Source="..\bin\Release\net10.0-windows\publish\WebView2Loader.dll" />
+				<RegistryValue Root="HKCU"
+                               Key="Software\GS Software\YtDlpQueue"
+                               Name="Installed"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes" />
+				<RemoveFolder Id="RemoveAPPFOLDER" Directory="APPFOLDER" On="uninstall" />
+			</Component>
+			<Component Id="RemoveGSSoftwareFolder"
+                       Guid="fdc8223a-5676-4960-98be-9d8bdc4cb518">
+				<RegistryValue Root="HKCU"
+                               Key="Software\GS Software\YtDlpQueue"
+                               Name="GSSoftwareFolder"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes" />
+				<RemoveFolder Id="RemoveGSSOFTWARE" Directory="GSSOFTWARE" On="uninstall" />
+			</Component>
+		</ComponentGroup>
+	</Fragment>
+
+	<!-- ── Tools-map (yt-dlp, ffmpeg, deno) ──────────────────────────────── -->
+	<Fragment>
+		<ComponentGroup Id="ToolsComponents" Directory="TOOLSFOLDER">
+			<Component Id="ToolsFiles"
+                       Guid="e5eb2ceb-b880-4739-8b01-4ae3bd9f1e3c">
+				<File Id="yt_dlp.exe"
+                      Source="..\tools\yt-dlp.exe" />
+				<File Id="ffmpeg.exe"
+                      Source="..\tools\ffmpeg.exe" />
+				<File Id="deno.exe"
+                      Source="..\tools\deno.exe" />
+				<RegistryValue Root="HKCU"
+                               Key="Software\GS Software\YtDlpQueue"
+                               Name="ToolsInstalled"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes" />
+				<RemoveFolder Id="RemoveTOOLSFOLDER" Directory="TOOLSFOLDER" On="uninstall" />
+			</Component>
+		</ComponentGroup>
+	</Fragment>
+
+	<!-- ── Snelkoppelingen ────────────────────────────────────────────────── -->
+	<Fragment>
+		<ComponentGroup Id="ProductShortcuts">
+			<Component Id="DesktopShortcut"
+                       Directory="DesktopFolder"
+                       Guid="*">
+				<Shortcut Id="DesktopShortcutYtDlpQueue"
+                          Name="yt-dlp Queue"
+                          Target="[APPFOLDER]YtDlpQueueDesktop.exe"
+                          WorkingDirectory="APPFOLDER"
+                          Icon="YtDlpQueue.ico" />
+				<RegistryValue Root="HKCU"
+                               Key="Software\GS Software\YtDlpQueue"
+                               Name="DesktopShortcut"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes" />
+			</Component>
+		</ComponentGroup>
+
+		<ComponentGroup Id="StartMenuShortcuts">
+			<Component Id="StartMenuShortcut"
+                       Directory="ProgramMenuFolder"
+                       Guid="*">
+				<Shortcut Id="StartMenuShortcutYtDlpQueue"
+                          Name="yt-dlp Queue"
+                          Target="[APPFOLDER]YtDlpQueueDesktop.exe"
+                          WorkingDirectory="APPFOLDER"
+                          Icon="YtDlpQueue.ico" />
+				<RegistryValue Root="HKCU"
+                               Key="Software\GS Software\YtDlpQueue"
+                               Name="StartMenuShortcut"
+                               Type="integer"
+                               Value="1"
+                               KeyPath="yes" />
+			</Component>
+		</ComponentGroup>
+	</Fragment>
+
+</Wix>

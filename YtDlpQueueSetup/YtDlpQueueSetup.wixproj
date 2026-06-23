@@ -1,0 +1,12 @@
+﻿<Project Sdk="WixToolset.Sdk/7.0.0">
+	<PropertyGroup>
+		<OutputName>YtDlpQueueSetup</OutputName>
+		<Platform>x64</Platform>
+		<Cultures>nl-NL</Cultures>
+		<SuppressIces>ICE64</SuppressIces>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="WixToolset.UI.wixext" Version="*" />
+		<PackageReference Include="WixToolset.Util.wixext" Version="*" />
+	</ItemGroup>
+</Project>
