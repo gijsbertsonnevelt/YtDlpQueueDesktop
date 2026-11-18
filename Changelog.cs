@@ -8,6 +8,17 @@ public static class Changelog
 {
     public static readonly IReadOnlyList<ChangelogEntry> Entries =
     [
+        new("1.3.0", new DateOnly(2026, 11, 18),
+        [
+            new ChangelogSection("Nieuw", [
+                "Zoeken op andere sites met een voorvoegsel: sc: (SoundCloud), bili: (Bilibili), nico: (Niconico)",
+                "Zoekresultaten tonen thumbnail en duur van de betreffende site, als die beschikbaar zijn",
+            ]),
+            new ChangelogSection("Verbeterd", [
+                "Installer: opruimactie bij verwijderen werkt weer (was te lang voor MSI) en draait niet meer bij een upgrade",
+                "Certificaten worden geladen via X509CertificateLoader (geen verouderde API meer)",
+            ]),
+        ]),
         new("1.2.0", new DateOnly(2026, 11, 18),
         [
             new ChangelogSection("Nieuw", [

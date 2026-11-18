@@ -19,7 +19,7 @@ public class NetworkInterceptException(string message) : Exception(message);
 /// een playlist/show/etc. ging) een gesaneerde naam om als submap te gebruiken.</summary>
 public record ExpandResult(List<string> Urls, string? PlaylistFolder);
 
-/// <summary>Eén zoekresultaat van een YouTube-zoekopdracht.</summary>
+/// <summary>Eén zoekresultaat van een zoekopdracht (YouTube of een andere site).</summary>
 public record SearchResultItem(
     string Id,
     string Url,
@@ -620,6 +620,145 @@ public class DownloadQueueService
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// Zoekt op een willekeurige site uit <see cref="SearchProviders"/>. Voor YouTube wordt de
+    /// bestaande <see cref="SearchAsync(string, int)"/> gebruikt (met YouTube-thumbnails).
+    /// </summary>
+    public async Task<List<SearchResultItem>> SearchAsync(SearchProvider provider, string query, int count = 12)
+    {
+        if (provider.IsYoutube)
+            return await SearchAsync(query, count);
+
+        var results = new List<SearchResultItem>();
+        if (string.IsNullOrWhiteSpace(query)) return results;
+
+        var args = new List<string> { "--flat-playlist", "--dump-json", "--no-warnings" };
+        AddCookieArgs(args);
+
+        if (provider.UrlTemplate is not null)
+        {
+            // Zoekpagina als playlist: alleen de eerste resultaten ophalen, niet alle pagina's.
+            args.Add("--lazy-playlist");
+            args.Add("--playlist-items");
+            args.Add($"1:{count}");
+        }
+
+        args.Add(provider.BuildTarget(query, count));
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = ToolPaths.YtDlp,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        psi.EnvironmentVariables["PATH"] =
+            ToolPaths.ToolsDir + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "") + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "");
+
+        if (File.Exists(ToolPaths.ZscalerCertPath))
+        {
+            psi.EnvironmentVariables["SSL_CERT_FILE"] = ToolPaths.ZscalerCertPath;
+            psi.EnvironmentVariables["REQUESTS_CA_BUNDLE"] = ToolPaths.ZscalerCertPath;
+        }
+
+        foreach (var arg in args)
+            psi.ArgumentList.Add(arg);
+
+        using var process = Process.Start(psi);
+        if (process is null) return results;
+
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        var output = await outputTask;
+        var stderr = await stderrTask;
+
+        CheckForCookieError(stderr);
+        CheckForNetworkInterception(stderr);
+
+        foreach (var line in output.Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length == 0) continue;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(trimmed);
+                var root = doc.RootElement;
+
+                var id = root.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                var entryUrl = root.TryGetProperty("url", out var urlProp) ? urlProp.GetString() : null;
+
+                // Zelfde logica als bij het uitlezen van playlists: werkt voor elke site.
+                var url = ResolveEntryUrl(root, id, entryUrl);
+                if (url is null) continue;
+
+                var title = root.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+                var channel = root.TryGetProperty("channel", out var channelProp) ? channelProp.GetString() : null;
+                if (string.IsNullOrEmpty(channel))
+                    channel = root.TryGetProperty("uploader", out var uploaderProp) ? uploaderProp.GetString() : null;
+
+                results.Add(new SearchResultItem(
+                    id ?? url,
+                    url,
+                    string.IsNullOrWhiteSpace(title) ? url : title,
+                    channel,
+                    GetDurationText(root),
+                    GetThumbnailUrl(root)));
+            }
+            catch (JsonException) { }
+        }
+
+        if (results.Count == 0 && process.ExitCode != 0)
+        {
+            var error = stderr.Split('\n')
+                .Select(l => l.Trim())
+                .LastOrDefault(l => l.Contains("ERROR", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrEmpty(error))
+                throw new InvalidOperationException(error);
+        }
+
+        return results;
+    }
+
+    /// <summary>Duur als tekst: "duration_string" of anders berekend uit "duration" (seconden).</summary>
+    private static string? GetDurationText(JsonElement root)
+    {
+        if (root.TryGetProperty("duration_string", out var ds) && ds.ValueKind == JsonValueKind.String)
+            return ds.GetString();
+
+        if (root.TryGetProperty("duration", out var d) && d.ValueKind == JsonValueKind.Number &&
+            d.TryGetDouble(out var seconds) && seconds > 0)
+        {
+            var t = TimeSpan.FromSeconds(seconds);
+            return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+        }
+
+        return null;
+    }
+
+    /// <summary>Thumbnail: "thumbnail", of anders de laatste (meestal grootste) uit "thumbnails".</summary>
+    private static string? GetThumbnailUrl(JsonElement root)
+    {
+        if (root.TryGetProperty("thumbnail", out var t) && t.ValueKind == JsonValueKind.String)
+            return t.GetString();
+
+        if (root.TryGetProperty("thumbnails", out var list) && list.ValueKind == JsonValueKind.Array)
+        {
+            string? last = null;
+            foreach (var item in list.EnumerateArray())
+            {
+                if (item.TryGetProperty("url", out var u) && u.ValueKind == JsonValueKind.String)
+                    last = u.GetString();
+            }
+            return last;
+        }
+
+        return null;
     }
 
     public async Task<List<SearchResultItem>> SearchPlaylistsAsync(string query, int count = 12)

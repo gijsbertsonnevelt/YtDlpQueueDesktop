@@ -3,7 +3,7 @@
 		<OutputName>YtDlpQueueSetup</OutputName>
 		<Platform>x64</Platform>
 		<Cultures>nl-NL</Cultures>
-		<SuppressIces>ICE64;ICE38;ICE53</SuppressIces>
+		<SuppressIces>ICE64;ICE38;ICE53;ICE91</SuppressIces>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="WixToolset.UI.wixext" Version="*" />

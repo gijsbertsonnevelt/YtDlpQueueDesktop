@@ -4,7 +4,7 @@
 
 	<Package Name="yt-dlp Queue"
              Manufacturer="GS Software"
-             Version="1.2.0"
+             Version="1.3.0"
              UpgradeCode="55990da1-924a-4052-b142-c186450baa41"
              Language="1043"
              Codepage="1252"
@@ -24,15 +24,19 @@
 		<Property Id="POWERSHELLEXE" Value="powershell.exe" />
 
 		<!-- ── Opruimen bij deinstallatie ────────────────────────────────── -->
+		<!-- Korte PowerShell-opdracht: de Target-kolom van een CustomAction mag maximaal
+		     255 tekens bevatten (ICE03). Geen vierkante haken gebruiken, MSI ziet die als property. -->
 		<CustomAction Id="CleanupToolsFolder"
 			Property="POWERSHELLEXE"
-			ExeCommand="-NonInteractive -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command &quot;try { $base = [System.IO.Path]::Combine($env:LOCALAPPDATA, 'GS Software', 'yt-dlp Queue'); if (Test-Path $base) { Get-ChildItem $base -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue; Remove-Item $base -Force -Recurse -ErrorAction SilentlyContinue }; $gs = [System.IO.Path]::Combine($env:LOCALAPPDATA, 'GS Software'); if ((Test-Path $gs) -and ((Get-ChildItem $gs -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0)) { Remove-Item $gs -Force -ErrorAction SilentlyContinue } } catch { }; exit 0&quot;"
+			ExeCommand="-NoProfile -NonInteractive -WindowStyle Hidden -Command &quot;$p=Join-Path $env:LOCALAPPDATA 'GS Software'; ri (Join-Path $p 'yt-dlp Queue') -Recurse -Force -EA 0; if(-not(gci $p -Force -EA 0)){ri $p -Force -EA 0}; exit 0&quot;"
 			Execute="deferred"
 			Impersonate="yes"
 			Return="ignore" />
 
 		<InstallExecuteSequence>
-			<Custom Action="CleanupToolsFolder" After="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot;" />
+			<!-- Alleen bij echt verwijderen, niet bij een upgrade: anders raakt de gebruiker
+			     bij elke nieuwe versie zijn cookies en instellingen kwijt. -->
+			<Custom Action="CleanupToolsFolder" After="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
 		</InstallExecuteSequence>
 
 		<Feature Id="ProductFeature" Title="yt-dlp Queue" Level="1" AllowAbsent="no">

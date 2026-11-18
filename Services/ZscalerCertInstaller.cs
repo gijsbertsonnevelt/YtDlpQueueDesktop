@@ -28,7 +28,8 @@ public static class ZscalerCertInstaller
             if (!File.Exists(CerPath))
                 return false;
 
-            var cert = new X509Certificate2(CerPath);
+            // X509CertificateLoader vervangt de verouderde X509Certificate2-constructor (SYSLIB0057).
+            using var cert = X509CertificateLoader.LoadCertificateFromFile(CerPath);
 
             // 1. Installeer in CurrentUser\Root als het er nog niet in zit
             //    (Windows toont hierbij eenmalig een bevestigingsdialoog)

@@ -186,7 +186,7 @@ public class MainForm : Form
         _urlBox = new TextBox
         {
             Dock = DockStyle.Fill,
-            PlaceholderText = "URL, zoekterm, of zoekterm! voor playlists — druk op Enter...",
+            PlaceholderText = "URL, zoekterm, zoekterm! voor playlists, of sc: zoekterm voor andere sites — Enter...",
             Margin = new Padding(0, 3, 8, 3),
         };
         _urlBox.KeyDown += (_, e) =>
@@ -351,10 +351,16 @@ public class MainForm : Form
 
         if (!LooksLikeUrl(input))
         {
-            var isPlaylistSearch = input.EndsWith("!");
-            var query = isPlaylistSearch ? input[..^1].TrimEnd() : input;
+            // Voorvoegsel zoals "sc:" kiest de zoeksite; zonder voorvoegsel YouTube.
+            var (provider, query) = SearchProviders.Parse(input);
+            if (query.Length == 0) return;
 
-            var searchForm = new SearchResultsForm(_queue, query, format, isPlaylistSearch);
+            // "!" aan het eind = playlists zoeken, alleen ondersteund op YouTube.
+            var isPlaylistSearch = provider.SupportsPlaylists && query.EndsWith("!");
+            if (isPlaylistSearch)
+                query = query[..^1].TrimEnd();
+
+            var searchForm = new SearchResultsForm(_queue, query, format, isPlaylistSearch, provider);
             searchForm.Show(this);
             return;
         }

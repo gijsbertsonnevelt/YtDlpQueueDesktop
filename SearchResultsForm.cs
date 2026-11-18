@@ -6,9 +6,10 @@ using YtDlpQueueDesktop.Services;
 namespace YtDlpQueueDesktop;
 
 /// <summary>
-/// Toont YouTube-zoekresultaten (video's of playlists) met thumbnail, titel, kanaal en duur/aantal.
+/// Toont zoekresultaten (video's of playlists) met thumbnail, titel, kanaal en duur/aantal.
 /// Blijft als los, niet-modaal venster open zodat je meerdere items kunt toevoegen.
-/// Activeer playlist-zoekmodus door de zoekterm te laten eindigen op "!".
+/// Standaard wordt op YouTube gezocht; met een voorvoegsel (bijv. "sc:") op een andere site,
+/// zie <see cref="SearchProviders"/>. Playlist-zoekmodus ("!" aan het eind) is alleen voor YouTube.
 /// </summary>
 public class SearchResultsForm : Form
 {
@@ -27,19 +28,23 @@ public class SearchResultsForm : Form
     private readonly string _format;
     private readonly string _folderName;
     private readonly bool _isPlaylistSearch;
+    private readonly SearchProvider _provider;
     private readonly FlowLayoutPanel _resultsPanel;
     private readonly Label _statusLabel;
     private readonly ToolTip _toolTip = new();
 
-    public SearchResultsForm(DownloadQueueService queue, string query, string format, bool isPlaylistSearch = false)
+    public SearchResultsForm(DownloadQueueService queue, string query, string format,
+        bool isPlaylistSearch = false, SearchProvider? provider = null)
     {
         _queue = queue;
         _query = query;
         _format = format;
-        _isPlaylistSearch = isPlaylistSearch;
+        _provider = provider ?? SearchProviders.YouTube;
+        _isPlaylistSearch = isPlaylistSearch && _provider.SupportsPlaylists;
         _folderName = DownloadQueueService.SanitizeFolderName(query);
 
-        Text = isPlaylistSearch ? $"Playlists: {query}" : $"Zoeken: {query}";
+        var siteSuffix = _provider.IsYoutube ? "" : $" ({_provider.Name})";
+        Text = _isPlaylistSearch ? $"Playlists: {query}" : $"Zoeken: {query}{siteSuffix}";
         ClientSize = new Size(640, 560);
         StartPosition = FormStartPosition.CenterParent;
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -49,9 +54,9 @@ public class SearchResultsForm : Form
 
         _statusLabel = new Label
         {
-            Text = isPlaylistSearch
+            Text = _isPlaylistSearch
                 ? $"Bezig met zoeken naar playlists voor \"{query}\"..."
-                : $"Bezig met zoeken naar \"{query}\"...",
+                : $"Bezig met zoeken naar \"{query}\" op {_provider.Name}...",
             Dock = DockStyle.Top,
             Height = 28,
             Padding = new Padding(12, 6, 12, 0),
@@ -130,23 +135,21 @@ public class SearchResultsForm : Form
         // Geen try/catch hier — exceptions stromen door naar de Load handler
         var results = _isPlaylistSearch
             ? await _queue.SearchPlaylistsAsync(_query)
-            : await _queue.SearchAsync(_query);
+            : await _queue.SearchAsync(_provider, _query);
 
-        foreach (var r in results)
-
-            if (IsDisposed) return;
+        if (IsDisposed) return;
 
         if (results.Count == 0)
         {
             _statusLabel.Text = _isPlaylistSearch
                 ? $"Geen playlists gevonden voor \"{_query}\"."
-                : $"Geen resultaten gevonden voor \"{_query}\".";
+                : $"Geen resultaten gevonden voor \"{_query}\" op {_provider.Name}.";
             return;
         }
 
         _statusLabel.Text = _isPlaylistSearch
             ? $"{results.Count} playlists voor \"{_query}\":"
-            : $"{results.Count} resultaten voor \"{_query}\":";
+            : $"{results.Count} resultaten voor \"{_query}\" op {_provider.Name}:";
 
         foreach (var result in results)
         {

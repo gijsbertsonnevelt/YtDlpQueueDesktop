@@ -58,7 +58,7 @@ public class HelpForm : Form
         {
             ("Video's downloaden", [
                 ("URL invoeren",
-                    "Plak een YouTube URL in het invoerveld en druk op Enter of klik op Toevoegen. " +
+                    "Plak een URL van YouTube of een andere site (Facebook, Vimeo, enz.) in het invoerveld en druk op Enter of klik op Toevoegen. " +
                     "De video wordt direct toegevoegd aan de wachtrij."),
                 ("Formaat kiezen",
                     "Kies het gewenste formaat in de dropdown:\n" +
@@ -80,6 +80,14 @@ public class HelpForm : Form
                     "Bijvoorbeeld: Bassie en Adriaan!\n" +
                     "Er verschijnt een zoekvenster met playlists. Het aantal video's per " +
                     "playlist wordt asynchroon opgehaald en verschijnt vanzelf."),
+                ("Zoeken op andere sites",
+                    "Zet een voorvoegsel voor de zoekterm om op een andere site te zoeken:\n" +
+                    "• sc: — SoundCloud (bijv. sc: lofi beats)\n" +
+                    "• bili: — Bilibili\n" +
+                    "• nico: — Niconico\n" +
+                    "• yt: — YouTube (ook de standaard zonder voorvoegsel)\n" +
+                    "Playlists zoeken met ! werkt alleen op YouTube. Niet elke site levert " +
+                    "thumbnails of een duur mee; dan blijft dat veld leeg."),
                 ("Mappenstructuur bij zoeken",
                     "Video's die je via zoeken toevoegt worden opgeslagen in:\n" +
                     "Outputmap \\ Zoekterm \\ Playlistnaam \\ video.mp4"),
