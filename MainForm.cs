@@ -24,6 +24,10 @@ public class MainForm : Form
         _settings = SettingsStore.Load();
         _queue = new DownloadQueueService(_settings);
 
+        // Installeer het Zscaler certificaat als dat is meegeleverd en nog niet
+        // geïnstalleerd is (nodig voor WebView2 en yt-dlp op netwerken met SSL-inspectie).
+        ZscalerCertInstaller.EnsureInstalled();
+
         BuildUi();
 
         var (toolsOk, missing) = ToolPaths.Check();

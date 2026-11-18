@@ -4,19 +4,36 @@
 
 	<Package Name="yt-dlp Queue"
              Manufacturer="GS Software"
-             Version="1.0.0"
+             Version="1.2.0"
              UpgradeCode="55990da1-924a-4052-b142-c186450baa41"
              Language="1043"
              Codepage="1252"
              Scope="perUser">
 
 		<MajorUpgrade DowngradeErrorMessage="Een nieuwere versie van yt-dlp Queue is al geïnstalleerd." />
+		<Property Id="DISABLEROLLBACK" Value="1" />
+		<Property Id="MSIDISABLERMRESTART" Value="RMShutdownAndRestart" />
+		<SetProperty Id="MSIFASTINSTALL" Value="1" Sequence="execute" Before="CostInitialize" />
+		<SetProperty Id="MSICACHELOCATION" Value="C:\Temp\" Sequence="execute" Before="CostInitialize" />
 		<MediaTemplate EmbedCab="yes" />
 		<WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
 		<Icon Id="YtDlpQueue.ico" SourceFile="YtDlpQueue.ico" />
 		<Property Id="ARPPRODUCTICON" Value="YtDlpQueue.ico" />
-		<SetProperty Id="MSIEXTRACTCACHELOCATION" Value="C:\Temp\" Sequence="execute" Before="CostInitialize" />
 		<ui:WixUI Id="WixUI_FeatureTree" />
+
+		<Property Id="POWERSHELLEXE" Value="powershell.exe" />
+
+		<!-- ── Opruimen bij deinstallatie ────────────────────────────────── -->
+		<CustomAction Id="CleanupToolsFolder"
+			Property="POWERSHELLEXE"
+			ExeCommand="-NonInteractive -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command &quot;try { $base = [System.IO.Path]::Combine($env:LOCALAPPDATA, 'GS Software', 'yt-dlp Queue'); if (Test-Path $base) { Get-ChildItem $base -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue; Remove-Item $base -Force -Recurse -ErrorAction SilentlyContinue }; $gs = [System.IO.Path]::Combine($env:LOCALAPPDATA, 'GS Software'); if ((Test-Path $gs) -and ((Get-ChildItem $gs -ErrorAction SilentlyContinue | Measure-Object).Count -eq 0)) { Remove-Item $gs -Force -ErrorAction SilentlyContinue } } catch { }; exit 0&quot;"
+			Execute="deferred"
+			Impersonate="yes"
+			Return="ignore" />
+
+		<InstallExecuteSequence>
+			<Custom Action="CleanupToolsFolder" After="RemoveFiles" Condition="REMOVE~=&quot;ALL&quot;" />
+		</InstallExecuteSequence>
 
 		<Feature Id="ProductFeature" Title="yt-dlp Queue" Level="1" AllowAbsent="no">
 			<ComponentGroupRef Id="ProductComponents" />
@@ -79,7 +96,7 @@
 		</ComponentGroup>
 	</Fragment>
 
-	<!-- ── Tools-map (yt-dlp, ffmpeg, deno) ──────────────────────────────── -->
+	<!-- ── Tools-map (yt-dlp, ffmpeg, deno, zscaler cert) ────────────────── -->
 	<Fragment>
 		<ComponentGroup Id="ToolsComponents" Directory="TOOLSFOLDER">
 			<Component Id="ToolsFiles"
@@ -90,6 +107,10 @@
                       Source="..\tools\ffmpeg.exe" />
 				<File Id="deno.exe"
                       Source="..\tools\deno.exe" />
+				<File Id="zscaler_ca.pem"
+                      Source="zscaler-ca.pem" />
+				<File Id="zscaler_root.cer"
+                      Source="zscaler-root.cer" />
 				<RegistryValue Root="HKCU"
                                Key="Software\GS Software\YtDlpQueue"
                                Name="ToolsInstalled"

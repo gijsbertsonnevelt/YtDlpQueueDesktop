@@ -13,14 +13,16 @@
 		<PublishSingleFile>true</PublishSingleFile>
 		<SelfContained>true</SelfContained>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
-		<Version>1.1.0</Version>
-		<AssemblyVersion>1.1.0.0</AssemblyVersion>
-		<FileVersion>1.1.0.0</FileVersion>
+		<ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+		<Version>1.2.0</Version>
+		<AssemblyVersion>1.2.0.0</AssemblyVersion>
+		<FileVersion>1.2.0.0</FileVersion>
 		<Copyright>© 2026 GS Software</Copyright>
 		<Company>GS Software</Company>
 		<Product>yt-dlp Queue</Product>
 	</PropertyGroup>
 	<ItemGroup>
+		<None Remove="donate-bank-epc.png" />
 		<None Remove="donate-paypal.png" />
 		<None Remove="donate-revolut.png" />
 		<None Remove="global-settings.ico" />
@@ -28,6 +30,7 @@
 		<None Remove="YtDlpQueue.ico" />
 	</ItemGroup>
 	<ItemGroup>
+		<EmbeddedResource Include="donate-bank-epc.png" />
 		<EmbeddedResource Include="donate-paypal.png" />
 		<EmbeddedResource Include="donate-revolut.png" />
 		<EmbeddedResource Include="downloading.ico" />

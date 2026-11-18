@@ -30,6 +30,11 @@ public static class ToolPaths
     public static string Ffmpeg => Path.Combine(ToolsDir, "ffmpeg.exe");
     public static string Deno => Path.Combine(ToolsDir, "deno.exe");
 
+    /// <summary>Pad naar het Zscaler CA certificaat in PEM formaat.
+    /// Wordt meegegeven aan yt-dlp via --ca-certificate als het bestand bestaat.</summary>
+    public static readonly string ZscalerCertPath =
+        Path.Combine(AppDataDir, "tools", "zscaler-ca.pem");
+
     public static void EnsureToolsDir()
     {
         if (!Directory.Exists(ToolsDir))

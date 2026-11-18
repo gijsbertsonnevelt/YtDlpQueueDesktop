@@ -15,7 +15,7 @@ public class CookiesFileException(string message) : Exception(message);
 /// <summary>Wordt gegooid als netwerkverkeer mogelijk wordt onderschept/geblokkeerd (bijv. proxy/Zscaler).</summary>
 public class NetworkInterceptException(string message) : Exception(message);
 
-/// <summary>Resultaat van het uitlezen van een URL: de losse video-URL's, en (indien het om
+/// <summary>Resultaat van het uitlezen van een URL (elke door yt-dlp ondersteunde site): de losse video-URL's, en (indien het om
 /// een playlist/show/etc. ging) een gesaneerde naam om als submap te gebruiken.</summary>
 public record ExpandResult(List<string> Urls, string? PlaylistFolder);
 
@@ -49,7 +49,6 @@ public class DownloadQueueService
     }
 
     public event Action? OnChange;
-    public event Func<Task<bool>>? CookiesRefreshRequested;
 
     public int MaxConcurrent => Math.Max(1, _settings.MaxConcurrentDownloads);
 
@@ -184,6 +183,14 @@ public class DownloadQueueService
             psi.EnvironmentVariables["PATH"] =
                 ToolPaths.ToolsDir + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "") + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "");
 
+            // Zscaler CA certificaat meegeven via omgevingsvariabele zodat yt-dlp
+            // SSL-verbindingen kan verifiëren op bedrijfsnetwerken met SSL-inspectie.
+            if (File.Exists(ToolPaths.ZscalerCertPath))
+            {
+                psi.EnvironmentVariables["SSL_CERT_FILE"] = ToolPaths.ZscalerCertPath;
+                psi.EnvironmentVariables["REQUESTS_CA_BUNDLE"] = ToolPaths.ZscalerCertPath;
+            }
+
             foreach (var arg in BuildArguments(item))
                 psi.ArgumentList.Add(arg);
 
@@ -248,7 +255,7 @@ public class DownloadQueueService
                     var cancelled = false;
                     for (var remaining = 15; remaining > 0; remaining--)
                     {
-                        item.ErrorMessage = $"YouTube 403 — opnieuw proberen over {remaining}s...";
+                        item.ErrorMessage = $"HTTP 403 / toegang geweigerd — opnieuw proberen over {remaining}s...";
                         NotifyChange();
                         try
                         {
@@ -322,6 +329,8 @@ public class DownloadQueueService
             "--no-color",
             "--no-playlist",
             "-o", outputTemplate,
+            // Sommige sites hebben zeer lange titels; voorkom Windows-padlimiet problemen.
+            "--trim-filenames", "150",
             "--sleep-interval", "2",
             "--max-sleep-interval", "5",
         };
@@ -398,6 +407,13 @@ public class DownloadQueueService
             args.Add("--cookies");
             args.Add(cookiesPath);
         }
+
+        // Op bedrijfsnetwerken met SSL-inspectie (bijv. Zscaler) kan yt-dlp de
+        // certificaatketen niet verifiëren. Als het Zscaler PEM bestand aanwezig is
+        // proberen we het via omgevingsvariabelen mee te geven (werkt niet altijd op
+        // Windows), als fallback schakelen we certificaatverificatie uit.
+        if (File.Exists(ToolPaths.ZscalerCertPath))
+            args.Add("--no-check-certificates");
     }
 
     public Task<ExpandResult> ExpandUrlAsync(string url) => ExpandPlaylistAsync(url);
@@ -419,6 +435,12 @@ public class DownloadQueueService
 
         psi.EnvironmentVariables["PATH"] =
             ToolPaths.ToolsDir + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "") + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "");
+
+        if (File.Exists(ToolPaths.ZscalerCertPath))
+        {
+            psi.EnvironmentVariables["SSL_CERT_FILE"] = ToolPaths.ZscalerCertPath;
+            psi.EnvironmentVariables["REQUESTS_CA_BUNDLE"] = ToolPaths.ZscalerCertPath;
+        }
 
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
@@ -462,11 +484,9 @@ public class DownloadQueueService
                             playlistFolder = SanitizeFolderName(title);
                     }
 
-                    if (!string.IsNullOrEmpty(id))
-                        urls.Add($"https://www.youtube.com/watch?v={id}");
-                    else if (!string.IsNullOrEmpty(entryUrl) &&
-                             entryUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                        urls.Add(entryUrl);
+                    var resolved = ResolveEntryUrl(root, id, entryUrl);
+                    if (resolved is not null)
+                        urls.Add(resolved);
                 }
                 catch (JsonException) { }
             }
@@ -481,6 +501,46 @@ public class DownloadQueueService
         {
             return new ExpandResult([url], null);
         }
+    }
+
+    /// <summary>
+    /// Bepaalt de pagina-URL van één item uit de <c>--dump-json</c> output. Werkt voor elke
+    /// site die yt-dlp ondersteunt, niet alleen YouTube:
+    /// 1. <c>webpage_url</c> — aanwezig bij een losse video (volledige info).
+    /// 2. <c>url</c> bij playlist-entries (<c>_type</c> = url / url_transparent) — dat is
+    ///    daar de pagina-URL. Bij een losse video kan <c>url</c> juist de directe
+    ///    stream-URL zijn, daarom alleen voor entries.
+    /// 3. Alleen voor YouTube: watch-URL opbouwen uit het video-id.
+    /// Geeft null terug als er niets bruikbaars is; de aanroeper valt dan terug op de
+    /// oorspronkelijke invoer-URL.
+    /// </summary>
+    private static string? ResolveEntryUrl(JsonElement root, string? id, string? entryUrl)
+    {
+        static bool IsHttp(string? value) =>
+            !string.IsNullOrWhiteSpace(value) &&
+            value.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+
+        var webpageUrl = root.TryGetProperty("webpage_url", out var wpProp) ? wpProp.GetString() : null;
+        if (IsHttp(webpageUrl))
+            return webpageUrl;
+
+        var type = root.TryGetProperty("_type", out var typeProp) ? typeProp.GetString() : null;
+        var isEntry = type is "url" or "url_transparent";
+        if (isEntry && IsHttp(entryUrl))
+            return entryUrl;
+
+        var extractor =
+            (root.TryGetProperty("ie_key", out var ieProp) ? ieProp.GetString() : null) ??
+            (root.TryGetProperty("extractor_key", out var exProp) ? exProp.GetString() : null) ??
+            (root.TryGetProperty("extractor", out var exNameProp) ? exNameProp.GetString() : null);
+
+        var isYoutube = extractor is not null &&
+                        extractor.StartsWith("youtube", StringComparison.OrdinalIgnoreCase);
+
+        if (isYoutube && !string.IsNullOrEmpty(id))
+            return $"https://www.youtube.com/watch?v={id}";
+
+        return null;
     }
 
     public static string SanitizeFolderName(string name)
@@ -510,6 +570,12 @@ public class DownloadQueueService
 
         psi.EnvironmentVariables["PATH"] =
             ToolPaths.ToolsDir + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "") + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "");
+
+        if (File.Exists(ToolPaths.ZscalerCertPath))
+        {
+            psi.EnvironmentVariables["SSL_CERT_FILE"] = ToolPaths.ZscalerCertPath;
+            psi.EnvironmentVariables["REQUESTS_CA_BUNDLE"] = ToolPaths.ZscalerCertPath;
+        }
 
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
@@ -581,6 +647,12 @@ public class DownloadQueueService
 
         psi.EnvironmentVariables["PATH"] =
             ToolPaths.ToolsDir + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "") + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "");
+
+        if (File.Exists(ToolPaths.ZscalerCertPath))
+        {
+            psi.EnvironmentVariables["SSL_CERT_FILE"] = ToolPaths.ZscalerCertPath;
+            psi.EnvironmentVariables["REQUESTS_CA_BUNDLE"] = ToolPaths.ZscalerCertPath;
+        }
 
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
@@ -663,6 +735,12 @@ public class DownloadQueueService
         psi.EnvironmentVariables["PATH"] =
             ToolPaths.ToolsDir + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "") + ";" + (Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "");
 
+        if (File.Exists(ToolPaths.ZscalerCertPath))
+        {
+            psi.EnvironmentVariables["SSL_CERT_FILE"] = ToolPaths.ZscalerCertPath;
+            psi.EnvironmentVariables["REQUESTS_CA_BUNDLE"] = ToolPaths.ZscalerCertPath;
+        }
+
         foreach (var arg in args)
             psi.ArgumentList.Add(arg);
 
@@ -735,7 +813,7 @@ public class DownloadQueueService
         {
             throw new CookiesFileException(
                 "Het cookies-bestand is ongeldig of corrupt.\n\n" +
-                "Haal nieuwe cookies op via Inloggen bij YouTube.");
+                "Haal nieuwe cookies op via Instellingen \u2192 Inloggen bij websites.");
         }
     }
 
@@ -748,10 +826,10 @@ public class DownloadQueueService
             stderr.Contains("SSL: CERTIFICATE", StringComparison.OrdinalIgnoreCase))
         {
             throw new NetworkInterceptException(
-                "De verbinding naar YouTube wordt onderschept door een SSL-inspectie proxy (mogelijk Zscaler).\n\n" +
+                "De verbinding naar de website wordt onderschept door een SSL-inspectie proxy (mogelijk Zscaler).\n\n" +
                 "yt-dlp kan het certificaat niet verifi\u00ebren. Mogelijke oplossingen:\n" +
                 "\u2022 Schakel Zscaler tijdelijk uit\n" +
-                "\u2022 Gebruik een cookies-bestand via Instellingen \u2192 Inloggen bij YouTube");
+                "\u2022 Gebruik een cookies-bestand via Instellingen \u2192 Inloggen bij websites");
         }
     }
 

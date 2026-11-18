@@ -73,11 +73,13 @@ public class DataGridViewProgressCell : DataGridViewTextBoxCell
             : cellStyle.ForeColor;
         using var textBrush = new SolidBrush(textColor);
 
-        var textSize = graphics.MeasureString(text, cellStyle.Font);
+        // Gebruik fallback font als cellStyle.Font null is
+        var font = cellStyle.Font ?? SystemFonts.DefaultFont;
+        var textSize = graphics.MeasureString(text, font);
         var textPos = new PointF(
             barRect.Right + 8,
             cellBounds.Y + (cellBounds.Height - textSize.Height) / 2);
-        graphics.DrawString(text, cellStyle.Font, textBrush, textPos);
+        graphics.DrawString(text, font, textBrush, textPos);
 
         if ((paintParts & DataGridViewPaintParts.Border) == DataGridViewPaintParts.Border)
         {

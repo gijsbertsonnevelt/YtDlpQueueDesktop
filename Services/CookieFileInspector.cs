@@ -163,4 +163,62 @@ public static class CookieFileInspector
             LatestExpiryUtc = latestExpiry
         };
     }
+
+    /// <summary>
+    /// Geeft de basisdomeinen (bijv. "youtube.com", "facebook.com") terug waarvoor het
+    /// cookies-bestand cookies bevat, alfabetisch gesorteerd. Bedoeld voor weergave in de UI.
+    /// </summary>
+    public static IReadOnlyList<string> GetSites(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return [];
+
+        string[] lines;
+        try { lines = File.ReadAllLines(path); }
+        catch { return []; }
+
+        var sites = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var rawLine in lines)
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0) continue;
+
+            // "#HttpOnly_" is een geldig voorvoegsel voor een cookie-regel, andere # is commentaar.
+            if (line.StartsWith("#HttpOnly_", StringComparison.OrdinalIgnoreCase))
+                line = line["#HttpOnly_".Length..];
+            else if (line.StartsWith('#'))
+                continue;
+
+            var parts = line.Split('\t');
+            if (parts.Length < 7) continue;
+
+            var site = ToBaseDomain(parts[0]);
+            if (site is not null)
+                sites.Add(site);
+        }
+
+        return sites.ToList();
+    }
+
+    /// <summary>
+    /// Benadert het basisdomein van een cookie-domein: ".m.facebook.com" → "facebook.com",
+    /// "www.bbc.co.uk" → "bbc.co.uk". Geen volledige public-suffix-lijst, maar voldoende
+    /// voor weergave.
+    /// </summary>
+    private static string? ToBaseDomain(string domain)
+    {
+        var d = domain.Trim().TrimStart('.').ToLowerInvariant();
+        if (d.Length == 0) return null;
+
+        var labels = d.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (labels.Length <= 2) return d;
+
+        // Tweedeniveau-landcodes zoals co.uk, com.au, com.br
+        var secondLast = labels[^2];
+        var last = labels[^1];
+        var takeThree = last.Length == 2 && secondLast is "co" or "com" or "net" or "org" or "gov" or "ac" or "edu";
+
+        return string.Join('.', labels[^(takeThree ? 3 : 2)..]);
+    }
 }

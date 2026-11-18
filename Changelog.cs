@@ -8,6 +8,24 @@ public static class Changelog
 {
     public static readonly IReadOnlyList<ChangelogEntry> Entries =
     [
+        new("1.2.0", new DateOnly(2026, 11, 18),
+        [
+            new ChangelogSection("Nieuw", [
+                "Downloaden van alle sites die yt-dlp ondersteunt (Facebook, Instagram, TikTok, X, Vimeo, enz.)",
+                "Inloggen bij willekeurige websites via de ingebouwde browser, met adresbalk en snelkeuzes",
+                "Cookies van alle sites worden in één keer opgeslagen",
+                "Knop \"Overal uitloggen\" wist alle logins en het cookies-bestand",
+                "Cookie-status toont het aantal sites (volledige lijst als tooltip)",
+                "Bank (EPC/SEPA) QR-code toegevoegd aan de donatiesectie in het Over-venster",
+            ]),
+            new ChangelogSection("Verbeterd", [
+                "Lange bestandsnamen worden ingekort om Windows-padlimieten te voorkomen",
+                "Foutmeldingen bij 403 en SSL-inspectie zijn niet langer YouTube-specifiek",
+            ]),
+            new ChangelogSection("Opgelost", [
+                "Links van andere sites werden omgezet naar een niet-bestaande YouTube-link",
+            ]),
+        ]),
         new("1.1.0", new DateOnly(2026, 6, 23),
         [
             new ChangelogSection("Nieuw", [

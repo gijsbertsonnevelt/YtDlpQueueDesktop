@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
@@ -41,7 +41,8 @@ public class AboutForm : Form
         };
         layout.Controls.Add(titleLabel);
 
-        var version = AppVersion.Version;
+        var version = Assembly.GetExecutingAssembly()
+            .GetName().Version?.ToString(3) ?? "1.1.0";
 
         var versionLabel = new Label
         {
@@ -130,34 +131,34 @@ public class AboutForm : Form
         paypalPanel.Controls.Add(paypalSubLabel);
         qrPanel.Controls.Add(paypalPanel);
 
-        // Revolut QR
-        var revolutPanel = new FlowLayoutPanel
+        // Bank QR (EPC/SEPA - werkt met vrijwel elke bank-app)
+        var bankPanel = new FlowLayoutPanel
         {
             FlowDirection = FlowDirection.TopDown,
             AutoSize = true,
         };
 
-        var revolutQr = LoadQrImage("donate-revolut.png", 180);
-        if (revolutQr is not null)
-            revolutPanel.Controls.Add(revolutQr);
+        var bankQr = LoadQrImage("donate-bank-epc.png", 180);
+        if (bankQr is not null)
+            bankPanel.Controls.Add(bankQr);
 
-        var revolutLabel = new Label
+        var bankLabel = new Label
         {
-            Text = "Revolut",
+            Text = "Bankoverschrijving",
             Font = new Font("Segoe UI", 9f, FontStyle.Bold),
             AutoSize = true,
             Margin = new Padding(0, 4, 0, 0),
         };
-        revolutPanel.Controls.Add(revolutLabel);
+        bankPanel.Controls.Add(bankLabel);
 
-        var revolutSubLabel = new Label
+        var bankSubLabel = new Label
         {
-            Text = "Scan met Revolut-app",
+            Text = "Scan met je eigen bank-app",
             ForeColor = SystemColors.GrayText,
             AutoSize = true,
         };
-        revolutPanel.Controls.Add(revolutSubLabel);
-        qrPanel.Controls.Add(revolutPanel);
+        bankPanel.Controls.Add(bankSubLabel);
+        qrPanel.Controls.Add(bankPanel);
 
         layout.Controls.Add(qrPanel);
 
